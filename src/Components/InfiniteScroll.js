@@ -1,93 +1,116 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 
 const InfiniteScroll = () => {
   const [posts, setPosts] = useState([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [selectedPost, setSelectedPost] = useState(null);
+  const observerRef = useRef(null);
 
-  // Function to load posts
-  const loadPosts = useCallback(async () => {
-    if (loading) return;
-
+  const fetchPosts = async () => {
     setLoading(true);
     try {
       const response = await fetch(
         `https://jsonplaceholder.typicode.com/posts?_page=${page}&_limit=10`
       );
       const data = await response.json();
-
-      if (data.length === 0) {
-        setHasMore(false);
-      } else {
-        setPosts((prevPosts) => [...prevPosts, ...data]);
-      }
+      setPosts((prevPosts) => [...prevPosts, ...data]);
     } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching posts:", error);
     }
-  }, [page, loading]);
-
-  // Load initial posts
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
-
-  // Scroll event listener
-  const handleScroll = () => {
-    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-
-    if (scrollHeight - scrollTop <= clientHeight + 50 && hasMore && !loading) {
-      setPage((prevPage) => prevPage + 1);
-    }
+    setLoading(false);
   };
 
-  // Attach and detach scroll listener
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
+    fetchPosts();
+  }, [page]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prevPage) => prevPage + 1);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
+      }
     };
-  }, [handleScroll, hasMore, loading]);
+  }, []);
 
   const handlePostClick = (post) => {
     setSelectedPost(post);
   };
 
-  const handleBackToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   return (
-    <div>
-      <h2>Infinite Scroll - Posts</h2>
-      <div style={{ display: 'flex', gap: '20px' }}>
-        {/* List of Posts */}
-        <ul style={{ flex: '1', maxHeight: '500px', overflowY: 'auto' }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        maxHeight: "80vh",
+        overflowY: "auto",
+        padding: "20px",
+        border: "1px solid #ddd",
+        borderRadius: "5px",
+        backgroundColor: "#f9f9f9",
+      }}
+    >
+      {/* Post List */}
+      <div style={{ width: "60%" }}>
+        <h2 style={{ textAlign: "center" }}>Infinite Scroll - Posts</h2>
+        <ul style={{ listStyleType: "none", padding: 0 }}>
           {posts.map((post) => (
             <li
               key={post.id}
-              style={{ cursor: 'pointer', color: 'blue', marginBottom: '10px' }}
+              style={{
+                margin: "10px 0",
+                cursor: "pointer",
+                backgroundColor: "#fff",
+                padding: "10px",
+                borderRadius: "5px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+              }}
               onClick={() => handlePostClick(post)}
             >
               {post.title}
             </li>
           ))}
         </ul>
+        <div
+          ref={observerRef}
+          style={{
+            height: "20px",
+            backgroundColor: "transparent",
+          }}
+        />
+        {loading && <p style={{ textAlign: "center" }}>Loading...</p>}
+      </div>
 
-        {/* Post Details */}
-        {selectedPost && (
-          <div
-            style={{
-              flex: '1',
-              border: '1px solid #ccc',
-              padding: '10px',
-              borderRadius: '5px',
-            }}
-          >
-            <h3>Post Details</h3>
+      {/* Post Details */}
+      <div
+        style={{
+          width: "35%",
+          marginLeft: "20px",
+          backgroundColor: "#e8f5e9",
+          padding: "15px",
+          borderRadius: "5px",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+        }}
+      >
+        {selectedPost ? (
+          <>
+            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>
+              Post Details
+            </h3>
             <p>
               <strong>Title:</strong> {selectedPost.title}
             </p>
@@ -97,30 +120,13 @@ const InfiniteScroll = () => {
             <p>
               <strong>User ID:</strong> {selectedPost.userId}
             </p>
-          </div>
+          </>
+        ) : (
+          <p style={{ textAlign: "center" }}>
+            Click on a post to view its details.
+          </p>
         )}
       </div>
-
-      {loading && <div>Loading more posts...</div>}
-      {!hasMore && <div>No more posts to load.</div>}
-
-      {/* Back to Top Button */}
-      <button
-        onClick={handleBackToTop}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          padding: '10px 20px',
-          backgroundColor: '#007bff',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-        }}
-      >
-        Back to Top
-      </button>
     </div>
   );
 };
